@@ -7,9 +7,8 @@ on:
     paths:
       - 'serving/**'
       - '.github/workflows/docker-build.yml'
-      - 'Dockerfile'
-      - 'README.md'  
-  workflow_dispatch:  
+      - 'README.md'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -31,6 +30,7 @@ jobs:
     - name: Build and push image
       uses: docker/build-push-action@v5
       with:
-        context: .
+        context: ./serving
+        file: ./serving/Dockerfile
         push: true
         tags: ylou25/serving-api:latest
