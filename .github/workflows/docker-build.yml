@@ -22,9 +22,10 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}  
         password: ${{ secrets.DOCKER_PASSWORD }}  
 
-    - name: Build and push image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: true
-        tags: ylou25/serving-api:latest
+  name: Build and push image
+  uses: docker/build-push-action@v5
+  with:
+    context: ./serving
+    file: ./serving/Dockerfile
+    push: true
+    tags: ylou25/serving-api:latest
