@@ -1,0 +1,84 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'serving/**'
+      - 'ui/**'
+      - '.github/workflows/docker-build.yml'
+      - 'README.md'
+  workflow_dispatch:
+
+jobs:
+  ci-cd:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.10
+
+      - name: Install dependencies & tools
+        run: |
+          pip install -r serving/requirements.txt
+          pip install -r ui/requirements.txt
+          pip install pytest flake8 black
+
+      - name: Lint code
+        run: flake8 serving ui
+
+      - name: Check formatting
+        run: black --check serving ui
+
+      - name: Run backend tests
+        run: pytest serving/tests
+
+      - name: Run frontend tests
+        run: pytest ui/tests
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build & push serving-api
+        uses: docker/build-push-action@v5
+        with:
+          context: serving
+          file: serving/Dockerfile
+          push: true
+          tags: |
+            ylou25/serving-api:latest
+
+      - name: Build & push streamlit-ui
+        uses: docker/build-push-action@v5
+        with:
+          context: ui
+          file: ui/Dockerfile
+          push: true
+          tags: |
+            ylou25/streamlit-ui:latest
+
+      - name: Configure kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+          kubeconfig: ${{ secrets.KUBE_CONFIG_DATA }}
+
+      - name: Deploy serving-api
+        run: |
+          kubectl set image deployment/serving-api serving-container=ylou25/serving-api:latest
+          kubectl rollout status deployment/serving-api
+
+      - name: Deploy streamlit-ui
+        run: |
+          kubectl set image deployment/streamlit-ui streamlit-container=ylou25/streamlit-ui:latest
+          kubectl rollout status deployment/streamlit-ui
