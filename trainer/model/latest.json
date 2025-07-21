@@ -1,0 +1,12 @@
+{
+  "model_file": "latest.pkl",
+  "created_at_utc": "20250715_005443",
+  "n_samples": 714,
+  "n_features": 4,
+  "features": [
+    "Sex",
+    "Age",
+    "Fare",
+    "Pclass"
+  ]
+}

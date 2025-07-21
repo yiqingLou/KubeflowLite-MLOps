@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: minio
-  labels:
-    app: minio
 spec:
   replicas: 1
   selector:
@@ -16,10 +14,12 @@ spec:
     spec:
       containers:
       - name: minio
-        image: minio/minio:latest
+        image: minio/minio
         args:
           - server
           - /data
+          - "--console-address"
+          - ":9001"
         env:
           - name: MINIO_ROOT_USER
             value: minioadmin
@@ -27,3 +27,11 @@ spec:
             value: minioadmin
         ports:
           - containerPort: 9000
+          - containerPort: 9001 
+        volumeMounts:
+          - name: minio-storage
+            mountPath: /data
+      volumes:
+        - name: minio-storage
+          persistentVolumeClaim:
+            claimName: minio-pvc

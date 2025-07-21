@@ -37,8 +37,9 @@ if "auth" not in st.session_state:
     if st.button("Submit"):
         try:
             url = f"{SERVING_URL}/{mode.lower()}"
-            resp = requests.post(url, json={"username": username,
-                                            "password": password}, timeout=5)
+            resp = requests.post(
+                url, json={"username": username, "password": password}, timeout=5
+            )
             if resp.status_code == 200:
                 if mode == "Register":
                     st.success("Registration successful, switch to Login.")
@@ -62,7 +63,9 @@ except requests.RequestException:
 
 with st.sidebar:
     st.header("Passenger Info")
-    sex = st.selectbox("Sex", [0, 1], format_func=lambda x: "Male" if x == 0 else "Female")
+    sex = st.selectbox(
+        "Sex", [0, 1], format_func=lambda x: "Male" if x == 0 else "Female"
+    )
     age = st.number_input("Age", 0.0, 100.0, 30.0)
     fare = st.number_input("Fare", 0.0, 500.0, 50.0)
     pclass = st.selectbox("Pclass", [1, 2, 3])
@@ -110,5 +113,5 @@ try:
                 st.json(meta)
     else:
         st.info("No model metadata found")
-except Exception as err: 
+except Exception as err:
     st.error(f"MinIO error: {err}")
