@@ -8,6 +8,7 @@ on:
       - 'ui/**'
       - '.github/workflows/docker-build.yml'
       - 'README.md'
+      - '.github/workflows/ci-cd.yml'
   workflow_dispatch:
 
 jobs:
