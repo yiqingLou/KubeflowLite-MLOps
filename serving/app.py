@@ -1,16 +1,17 @@
-import os
 import io
-import time
 import json
-import hashlib
-import joblib
-from datetime import datetime, date
+import os
+import time
 from collections import deque
+from datetime import date
+from hashlib import sha256
 from typing import List
-from fastapi import FastAPI, HTTPException, Body
-from pydantic import BaseModel, Field
+
+import joblib
+from fastapi import Body, FastAPI, HTTPException
 from minio import Minio
 from minio.error import S3Error
+from pydantic import BaseModel, Field
 
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "minio:9000")
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
@@ -83,7 +84,7 @@ def _load_users() -> dict:
     try:
         data = client.get_object(BUCKET_NAME, USERS_KEY)
         return json.loads(data.read().decode())
-    except:
+    except Exception:
         return {}
 
 
@@ -103,8 +104,7 @@ def register(r: RegisterIn = Body(...)):
     users = _load_users()
     if r.username in users:
         raise HTTPException(400, "User already exists")
-    h = hashlib.sha256(r.password.encode()).hexdigest()
-    users[r.username] = h
+    users[r.username] = sha256(r.password.encode()).hexdigest()
     _save_users(users)
     return {"status": "ok"}
 
@@ -112,7 +112,7 @@ def register(r: RegisterIn = Body(...)):
 @app.post("/login")
 def login(r: RegisterIn = Body(...)):
     users = _load_users()
-    h = hashlib.sha256(r.password.encode()).hexdigest()
+    h = sha256(r.password.encode()).hexdigest()
     if users.get(r.username) != h:
         raise HTTPException(401, "Bad credentials")
     return {"status": "ok"}
@@ -137,7 +137,11 @@ def predict(inp: Input):
 @app.get("/metrics/summary")
 def metrics_summary():
     p50 = round(sorted(lat_hist)[len(lat_hist) // 2], 1) if lat_hist else 0
-    return {"lat50": p50, "req_today": req_counter["count"], "model_version": obj_name}
+    return {
+        "lat50": p50,
+        "req_today": req_counter["count"],
+        "model_version": obj_name,
+    }
 
 
 @app.post("/reload")
