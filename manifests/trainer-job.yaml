@@ -8,4 +8,7 @@ spec:
       containers:
       - name: trainer
         image: ylou25/trainer-job:latest  
+        env:
+        - name: MINIO_ENDPOINT
+          value: "minio:9000"
       restartPolicy: Never

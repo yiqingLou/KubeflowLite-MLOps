@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: streamlit-ui-secret
+type: Opaque
+stringData:
+  UI_USER: "your_username"
+  UI_PWD:  "your_password"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: streamlit-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: streamlit-ui
+  template:
+    metadata:
+      labels:
+        app: streamlit-ui
+    spec:
+      containers:
+        - name: streamlit-container
+          image: ylou25/streamlit-ui:v3
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8501
+          env:
+            - name: UI_USER
+              valueFrom:
+                secretKeyRef:
+                  name: streamlit-ui-secret
+                  key: UI_USER
+            - name: UI_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: streamlit-ui-secret
+                  key: UI_PWD
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: streamlit-ui-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: streamlit-ui
+  ports:
+    - protocol: TCP
+      port: 8501
+      targetPort: 8501

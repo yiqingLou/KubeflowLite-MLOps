@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: upload-model
+spec:
+  backoffLimit: 0          
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: mc
+        image: minio/mc
+        command: ["/bin/sh","-c"]
+        args:
+          - |
+            set -e
+            mc alias set remote http://minio:9000 minioadmin minioadmin
+            mc mb remote/model || true
+            mc cp /data/model.pkl remote/model/
+            echo "✅  model.pkl uploaded to MinIO"
+        volumeMounts:
+          - name: model
+            mountPath: /data
+      volumes:
+        - name: model
+          configMap:
+            name: model-pkl
+            items:
+              - key: model.pkl
+                path: model.pkl

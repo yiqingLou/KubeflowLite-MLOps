@@ -1,0 +1,12 @@
+spec:
+  template:
+    spec:
+      volumes:
+        - name: loki-datasource-volume
+          configMap:
+            name: loki-datasource
+      containers:
+        - name: grafana
+          volumeMounts:
+            - mountPath: /etc/grafana/provisioning/datasources
+              name: loki-datasource-volume

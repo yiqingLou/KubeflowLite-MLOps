@@ -14,12 +14,29 @@ spec:
     spec:
       containers:
         - name: serving-container
-          image: ylou25/serving-api:latest
+          image: us-central1-docker.pkg.dev/kubeflowlite-demo/mlops/serving-api:v4
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
           command: ["uvicorn"]
           args: ["app:app", "--host", "0.0.0.0", "--port", "8000"]
+
+   
+          env:
+            - name: MINIO_ENDPOINT
+              value: "minio:9000"
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-creds
+                  key: access
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-creds
+                  key: secret
+            - name: MODEL_OBJECT
+              value: "latest.pkl"
 
 ---
 apiVersion: v1
@@ -27,11 +44,11 @@ kind: Service
 metadata:
   name: serving-service
 spec:
-  type: NodePort
+  type: NodePort         
   selector:
     app: serving-api
   ports:
     - protocol: TCP
       port: 8000
       targetPort: 8000
-      nodePort: 30800
+      nodePort: 30800     

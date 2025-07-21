@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: daily-trainer
+spec:
+
+  schedule: "0 4 * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+
+          containers:
+            - name: trainer
+              image: ylou25/trainer:daily    
+              imagePullPolicy: IfNotPresent
+
+
+              command: ["python", "trainer.py"]
+              args:
+                - "--out"
+                - "/tmp/model.pkl"
+                - "--upload-minio"
+
+              env:
+                - name: MINIO_ENDPOINT
+                  value: "minio:9000"         
+                - name: MINIO_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: minio-creds
+                      key: MINIO_ACCESS_KEY
+                - name: MINIO_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: minio-creds
+                      key: MINIO_SECRET_KEY

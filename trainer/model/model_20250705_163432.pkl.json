@@ -1,0 +1,1 @@
+{"model_file": "model_20250705_163432.pkl", "created_at": "20250705_163432", "n_samples": 714, "n_features": 4, "features": ["Sex", "Age", "Fare", "Pclass"]}
