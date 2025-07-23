@@ -6,14 +6,13 @@ on:
     paths:
       - 'serving/**'
       - 'ui/**'
-      - '.github/workflows/ci-cd.yml'
+      - '.github/workflows/**'
       - 'README.md'
   workflow_dispatch:
 
 jobs:
   ci-cd:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
 
     steps:
       - name: Checkout code
@@ -57,7 +56,9 @@ jobs:
           context: serving
           file: serving/Dockerfile
           push: true
-          tags: ylou25/serving-api:latest
+          tags: |
+            ylou25/serving-api:latest
+            ylou25/serving-api:${{ github.sha }}
 
       - name: Build & push streamlit-ui
         uses: docker/build-push-action@v5
@@ -65,23 +66,22 @@ jobs:
           context: ui
           file: ui/Dockerfile
           push: true
-          tags: ylou25/streamlit-ui:latest
+          tags: |
+            ylou25/streamlit-ui:latest
+            ylou25/streamlit-ui:${{ github.sha }}
 
-      - name: Install kubectl
+    
+      - name: Configure kubectl
         if: ${{ secrets.KUBE_CONFIG_DATA != '' }}
-        uses: azure/setup-kubectl@v4
+        uses: azure/setup-kubectl@v3
         with:
           version: 'latest'
 
       - name: Write kubeconfig
         if: ${{ secrets.KUBE_CONFIG_DATA != '' }}
-        env:
-          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
         run: |
           mkdir -p $HOME/.kube
-          echo "$KUBE_CONFIG_DATA" | base64 -d > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
-          kubectl cluster-info
+          echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > $HOME/.kube/config
 
       - name: Deploy serving-api
         if: ${{ secrets.KUBE_CONFIG_DATA != '' }}
