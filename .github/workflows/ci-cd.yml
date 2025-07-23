@@ -13,6 +13,8 @@ on:
 jobs:
   ci-cd:
     runs-on: ubuntu-latest
+    env:
+      DO_DEPLOY: ${{ secrets.KUBE_CONFIG_DATA != '' }}
 
     steps:
       - name: Checkout code
@@ -21,7 +23,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: '3.10'
 
       - name: Install dependencies & tools
         run: |
@@ -70,27 +72,27 @@ jobs:
             ylou25/streamlit-ui:latest
             ylou25/streamlit-ui:${{ github.sha }}
 
-      # ---------- 以下步骤只有在你设置了 KUBE_CONFIG_DATA secret 时才会执行 ----------
+      # ---------------- 部署（当且仅当你配置了 KUBE_CONFIG_DATA） ----------------
       - name: Configure kubectl
-        if: ${{ secrets.KUBE_CONFIG_DATA != '' }}
+        if: env.DO_DEPLOY == 'true'
         uses: azure/setup-kubectl@v3
         with:
           version: 'latest'
 
       - name: Write kubeconfig
-        if: ${{ secrets.KUBE_CONFIG_DATA != '' }}
+        if: env.DO_DEPLOY == 'true'
         run: |
           mkdir -p $HOME/.kube
           echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > $HOME/.kube/config
 
       - name: Deploy serving-api
-        if: ${{ secrets.KUBE_CONFIG_DATA != '' }}
+        if: env.DO_DEPLOY == 'true'
         run: |
           kubectl set image deployment/serving-api serving-container=ylou25/serving-api:latest
           kubectl rollout status deployment/serving-api
 
       - name: Deploy streamlit-ui
-        if: ${{ secrets.KUBE_CONFIG_DATA != '' }}
+        if: env.DO_DEPLOY == 'true'
         run: |
           kubectl set image deployment/streamlit-ui streamlit-container=ylou25/streamlit-ui:latest
           kubectl rollout status deployment/streamlit-ui
