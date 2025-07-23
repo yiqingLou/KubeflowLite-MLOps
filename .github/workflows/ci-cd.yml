@@ -70,7 +70,7 @@ jobs:
             ylou25/streamlit-ui:latest
             ylou25/streamlit-ui:${{ github.sha }}
 
-    
+      # ---------- 以下步骤只有在你设置了 KUBE_CONFIG_DATA secret 时才会执行 ----------
       - name: Configure kubectl
         if: ${{ secrets.KUBE_CONFIG_DATA != '' }}
         uses: azure/setup-kubectl@v3
