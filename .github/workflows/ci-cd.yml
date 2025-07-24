@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
       - 'serving/**'
       - 'ui/**'
@@ -14,85 +14,74 @@ jobs:
   ci-cd:
     runs-on: ubuntu-latest
     env:
-      DO_DEPLOY: ${{ secrets.KUBE_CONFIG_DATA != '' }}
+      REGISTRY_USER: ${{ secrets.DOCKER_USERNAME }}
+      REGISTRY_PASS: ${{ secrets.DOCKER_PASSWORD }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
-      - name: Install dependencies & tools
-        run: |
+      - run: |
           pip install -r serving/requirements.txt
           pip install -r ui/requirements.txt
           pip install pytest flake8 black
 
-      - name: Lint code
-        run: flake8 serving ui
+      - run: flake8 serving ui
+      - run: black --check serving ui
+      - run: pytest serving/tests
+      - run: pytest ui/tests
 
-      - name: Check formatting
-        run: black --check serving ui
-
-      - name: Run backend tests
-        run: pytest serving/tests
-
-      - name: Run frontend tests
-        run: pytest ui/tests
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ env.REGISTRY_USER }}
+          password: ${{ env.REGISTRY_PASS }}
 
-      - name: Build & push serving-api
-        uses: docker/build-push-action@v5
+      - uses: docker/build-push-action@v5
         with:
           context: serving
           file: serving/Dockerfile
           push: true
-          tags: |
-            ylou25/serving-api:latest
-            ylou25/serving-api:${{ github.sha }}
+          tags: ylou25/serving-api:latest
 
-      - name: Build & push streamlit-ui
-        uses: docker/build-push-action@v5
+      - uses: docker/build-push-action@v5
         with:
           context: ui
           file: ui/Dockerfile
           push: true
-          tags: |
-            ylou25/streamlit-ui:latest
-            ylou25/streamlit-ui:${{ github.sha }}
-
-      # ---------------- 部署（当且仅当你配置了 KUBE_CONFIG_DATA） ----------------
-      - name: Configure kubectl
-        if: env.DO_DEPLOY == 'true'
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'latest'
+          tags: ylou25/streamlit-ui:latest
 
       - name: Write kubeconfig
-        if: env.DO_DEPLOY == 'true'
+        if: ${{ secrets.KUBE_CONFIG_DATA }}
         run: |
           mkdir -p $HOME/.kube
           echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > $HOME/.kube/config
 
+      - name: Patch kubeconfig
+        if: ${{ secrets.KUBE_CONFIG_DATA }}
+        run: |
+          sudo curl -L https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+          KCONF=$HOME/.kube/config
+          yq -i '(.clusters[].cluster |= (.insecure-skip-tls-verify=true) | del(.certificate-authority) | del(.certificate-authority-data))' $KCONF
+          yq -i '(.users[].user |= (del(.client-certificate) | del(.client-key) | del(.client-certificate-data) | del(.client-key-data)))' $KCONF
+
+      - uses: azure/setup-kubectl@v4
+        if: ${{ secrets.KUBE_CONFIG_DATA }}
+        with:
+          version: latest
+
       - name: Deploy serving-api
-        if: env.DO_DEPLOY == 'true'
+        if: ${{ secrets.KUBE_CONFIG_DATA }}
         run: |
           kubectl set image deployment/serving-api serving-container=ylou25/serving-api:latest
           kubectl rollout status deployment/serving-api
 
       - name: Deploy streamlit-ui
-        if: env.DO_DEPLOY == 'true'
+        if: ${{ secrets.KUBE_CONFIG_DATA }}
         run: |
           kubectl set image deployment/streamlit-ui streamlit-container=ylou25/streamlit-ui:latest
           kubectl rollout status deployment/streamlit-ui
