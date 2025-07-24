@@ -13,9 +13,6 @@ on:
 jobs:
   ci-cd:
     runs-on: ubuntu-latest
-    env:
-      REGISTRY_USER: ${{ secrets.DOCKER_USERNAME }}
-      REGISTRY_PASS: ${{ secrets.DOCKER_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
@@ -37,8 +34,8 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
-          username: ${{ env.REGISTRY_USER }}
-          password: ${{ env.REGISTRY_PASS }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
       - uses: docker/build-push-action@v5
         with:
@@ -54,14 +51,28 @@ jobs:
           push: true
           tags: ylou25/streamlit-ui:latest
 
-      - name: Write kubeconfig
-        if: ${{ secrets.KUBE_CONFIG_DATA }}
+      - name: check kube secret
+        id: kcfg
+        run: |
+          if [ -z "${{ secrets.KUBE_CONFIG_DATA }}" ]; then
+            echo "has=false" >> $GITHUB_OUTPUT
+          else
+            echo "has=true" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: azure/setup-kubectl@v4
+        if: steps.kcfg.outputs.has == 'true'
+        with:
+          version: latest
+
+      - name: write kubeconfig
+        if: steps.kcfg.outputs.has == 'true'
         run: |
           mkdir -p $HOME/.kube
           echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > $HOME/.kube/config
 
-      - name: Patch kubeconfig
-        if: ${{ secrets.KUBE_CONFIG_DATA }}
+      - name: patch kubeconfig
+        if: steps.kcfg.outputs.has == 'true'
         run: |
           sudo curl -L https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq
           sudo chmod +x /usr/local/bin/yq
@@ -69,19 +80,14 @@ jobs:
           yq -i '(.clusters[].cluster |= (.insecure-skip-tls-verify=true) | del(.certificate-authority) | del(.certificate-authority-data))' $KCONF
           yq -i '(.users[].user |= (del(.client-certificate) | del(.client-key) | del(.client-certificate-data) | del(.client-key-data)))' $KCONF
 
-      - uses: azure/setup-kubectl@v4
-        if: ${{ secrets.KUBE_CONFIG_DATA }}
-        with:
-          version: latest
-
-      - name: Deploy serving-api
-        if: ${{ secrets.KUBE_CONFIG_DATA }}
+      - name: deploy serving-api
+        if: steps.kcfg.outputs.has == 'true'
         run: |
           kubectl set image deployment/serving-api serving-container=ylou25/serving-api:latest
           kubectl rollout status deployment/serving-api
 
-      - name: Deploy streamlit-ui
-        if: ${{ secrets.KUBE_CONFIG_DATA }}
+      - name: deploy streamlit-ui
+        if: steps.kcfg.outputs.has == 'true'
         run: |
           kubectl set image deployment/streamlit-ui streamlit-container=ylou25/streamlit-ui:latest
           kubectl rollout status deployment/streamlit-ui
